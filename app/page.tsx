@@ -120,10 +120,18 @@ function Header() {
   const spyLock = useRef(0)
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 4)
+    const hero = document.querySelector<HTMLElement>('.hero')
+    const onScroll = () => {
+      const trigger = hero ? Math.max(hero.offsetHeight - 88, 40) : 40
+      setScrolled(window.scrollY > trigger)
+    }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
+    window.addEventListener('resize', onScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
   }, [])
 
   useEffect(() => {
@@ -156,7 +164,7 @@ function Header() {
     return () => io.disconnect()
   }, [])
 
-  return <header className={scrolled ? 'site-header is-scrolled' : 'site-header'}>
+  return <header className={scrolled || open ? 'site-header is-scrolled' : 'site-header'}>
     <div className="nav-shell">
       <a href="#home" className="brand" aria-label="Rea's Cleaning Services, home"><Image src="/my-logo.png" alt="Rea's Cleaning Services" width={140} height={140} className="brand-logo" priority /></a>
       <nav className={open ? 'nav-links nav-open' : 'nav-links'} aria-label="Main navigation">
@@ -169,56 +177,38 @@ function Header() {
 }
 
 function QuoteForm() {
-  const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle')
-  const [error, setError] = useState('')
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent'>('idle')
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const form = e.currentTarget
-    const data = Object.fromEntries(new FormData(form))
     setStatus('sending')
-    setError('')
-    try {
-      const res = await fetch('/api/quote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-      const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!res.ok || !body.ok) throw new Error(body.error || 'Something went wrong. Please try again.')
-      setStatus('success')
+    window.setTimeout(() => {
       form.reset()
-    } catch (err) {
-      setStatus('error')
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-    }
+      setStatus('sent')
+    }, 700)
   }
 
-  if (status === 'success') {
-    return <div className="quote-form quote-form-done"><div className="form-done-mark"><Check size={26} /></div><h3>Request received</h3><p>Thanks for reaching out. We&apos;ll be in touch shortly to talk about your space.</p><a href={`tel:${phone}`} className="text-link">Or call us now <ArrowUpRight size={15} /></a></div>
-  }
-
-  return <form className="quote-form" onSubmit={handleSubmit}><div className="form-title"><h3>Request a free quote</h3><p>We&apos;ll be in touch shortly.</p></div><div className="form-grid"><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required type="tel" name="phone" placeholder="404-000-0000" /></label><label>Email<input required type="email" name="email" placeholder="you@example.com" /></label><label>Service needed<select required name="service" defaultValue=""><option value="" disabled>Select a service</option>{services.map(([title]) => <option key={title}>{title}</option>)}</select></label><label>Preferred date<input type="date" name="date" /></label><label className="full-field">Message<textarea name="message" placeholder="Tell us a little about your space..." rows={4} /></label></div><button className="button button-primary" type="submit" disabled={status === 'sending'}>{status === 'sending' ? 'Sending…' : 'Request a free quote'} <ArrowUpRight size={16} /></button>{status === 'error' && <p className="form-error" role="alert">{error}</p>}<small className="form-note">No obligation <span>•</span> Quick response <span>•</span> Friendly service</small></form>
+  return <form className="quote-form" onSubmit={handleSubmit} onInput={() => setStatus((s) => (s === 'sent' ? 'idle' : s))}><div className="form-title"><h3>Request a free quote</h3><p>We&apos;ll be in touch shortly.</p></div><div className="form-grid"><label>Full name<input required name="name" placeholder="Your name" /></label><label>Phone number<input required type="tel" name="phone" placeholder="404-000-0000" /></label><label>Email<input required type="email" name="email" placeholder="you@example.com" /></label><label>Service needed<select required name="service" defaultValue=""><option value="" disabled>Select a service</option>{services.map(([title]) => <option key={title}>{title}</option>)}</select></label><label>Preferred date<input type="date" name="date" /></label><label className="full-field">Message<textarea name="message" placeholder="Tell us a little about your space..." rows={4} /></label></div><button className="button button-primary" type="submit" disabled={status !== 'idle'}>{status === 'sending' ? 'Sending…' : status === 'sent' ? 'Request sent' : 'Request a free quote'} <ArrowUpRight size={16} /></button>{status === 'sent' && <p className="form-sent" role="status"><Check size={15} /> Thanks! Your request has been sent — we&apos;ll be in touch shortly.</p>}<small className="form-note">No obligation <span>•</span> Quick response <span>•</span> Friendly service</small></form>
 }
 
 export default function Page() {
   return <main id="home">
     <Header />
     <section className="hero"><HeroVideo /><div className="hero-overlay" aria-hidden="true" /><div className="hero-inner"><div className="hero-copy"><p className="eyebrow">Trusted cleaning services in Atlanta</p><h1>Professional cleaning services <span>you can count on.</span></h1><p className="hero-text">From spotless offices to fresh Airbnb spaces and move-out cleanups, Rea&apos;s Cleaning Services helps keep your space clean, fresh, and ready for what comes next.</p><div className="hero-actions"><Button>Get a free quote</Button><a href={`tel:${phone}`} className="phone-link"><Phone size={17} /> Call {phone}</a></div><div className="trust-row"><span><b>10+</b> Years experience</span><span><b>✓</b> Reliable &amp; professional</span><span><b>⌖</b> Atlanta &amp; surrounding areas</span></div></div></div></section>
-    <section id="about" className="about section-pad"><div className="about-image"><Image src="/about-image.jpg" alt="Rea's Cleaning Services team cleaning office windows" fill sizes="(max-width: 800px) 100vw, 42vw" /></div><div className="about-copy"><p className="eyebrow">A cleaner way forward</p><h2>Cleaning done right,<br /><i>every time.</i></h2><p>For more than 10 years, Rea&apos;s Cleaning Services has helped homes, offices, Airbnb properties, and commercial spaces stay clean and welcoming. Our professional approach is built on attention to detail, dependable service, and genuine care for every customer.</p><div className="feature-list">{['Experienced team','Detail-focused cleaning','Reliable service'].map(item => <div key={item}><span><Check size={15} /></span>{item}</div>)}</div></div></section>
+    <section id="about" className="about section-pad"><div className="about-image"><Image src="/about-image.jpg" alt="Rea's Cleaning Services team cleaning office windows" fill sizes="(max-width: 800px) 100vw, 42vw" /></div><div className="about-copy"><p className="eyebrow">A cleaner way forward</p><h2>Cleaning done right,<br /><i>every time.</i></h2><p>For more than 10 years, Rea&apos;s Cleaning Services has helped homes, offices, Airbnb properties, and commercial spaces across Atlanta stay clean, healthy, and welcoming. What began as a small local team has grown into a name that busy families, property managers, and business owners trust week after week.</p><p>Every clean is handled by trained, background-checked professionals who treat your space as if it were their own. We arrive on schedule, bring our own supplies, and follow a detailed checklist so nothing is overlooked. From routine upkeep to deep cleans and move-out turnarounds, our approach is built on attention to detail, dependable service, and genuine care for every customer.</p><div className="feature-list">{['Experienced team','Detail-focused cleaning','Reliable service'].map(item => <div key={item}><span><Check size={15} /></span>{item}</div>)}</div></div></section>
     <section id="services" className="services section-pad"><div className="section-heading"><div><p className="eyebrow">What we do</p><h2>Our cleaning services</h2></div><p>Flexible cleaning solutions for homes, businesses, rentals, and everything in between.</p></div><div className="service-grid">{services.map(([title, desc, image], i) => <article className="service-card" key={title}><div className="service-image"><Image src={image} alt={`${title} by Rea's Cleaning Services`} fill sizes="(max-width: 800px) 100vw, 33vw" /></div><div className="service-info"><span className="service-number">0{i + 1}</span><h3>{title}</h3><p>{desc}</p></div></article>)}</div></section>
     <Gallery />
     <section id="faq" className="faq section-pad"><div className="faq-intro"><p className="eyebrow">Good to know</p><h2>Frequently asked<br /><i>questions.</i></h2><p>Can&apos;t find what you&apos;re looking for? Give us a call and we&apos;ll be happy to help.</p><a href={`tel:${phone}`} className="text-link">Talk to our team <ArrowUpRight size={15} /></a></div><div className="faq-list">{faqs.map(([q,a]) => <details key={q}><summary>{q}<ChevronDown size={19} /></summary><p>{a}</p></details>)}</div></section>
     <section id="contact" className="contact section-pad"><div className="contact-intro"><p className="eyebrow">Let&apos;s get started</p><h2>Let&apos;s get your space<br /><i>looking its best.</i></h2><p>Tell us what you need cleaned and we&apos;ll be happy to help.</p><div className="contact-cards"><a href={`tel:${phone}`}><Phone size={20} /><span>Call or text<strong>{phone}</strong></span></a><a href="mailto:emilie0874@gmail.com"><Mail size={20} /><span>Email us<strong>emilie0874@gmail.com</strong></span></a><div><Clock3 size={20} /><span>Hours<strong>9:00 AM – 9:00 PM</strong></span></div></div></div><QuoteForm /></section>
     <footer>
-      <div className="footer-cta"><div><h3>Ready for a space that feels brand new?</h3><p>Tell us what you need cleaned — we&apos;ll take care of the rest.</p></div><Button variant="light">Get a free quote</Button></div>
+      <div className="footer-cta"><div><h3>Ready for a space that feels brand new?</h3><p>Tell us what you need cleaned — we&apos;ll take care of the rest.</p></div></div>
       <div className="footer-top">
-        <div className="footer-brand-col"><a href="#home" className="footer-wordmark">Rea&apos;s <span>Cleaning Services</span></a><p>Professional cleaning for offices, Airbnb rentals, commercial spaces, and moves across Atlanta — reliable, detail-focused, and done right.</p><a className="footer-social" href="https://www.facebook.com/reacleaningservices/about/" target="_blank" rel="noreferrer" aria-label="Rea&apos;s Cleaning Services on Facebook"><span aria-hidden="true" className="facebook-mark">f</span></a></div>
-        <div className="footer-col"><h4>Services</h4>{services.map(([title]) => <a key={title} href="#contact">{title}</a>)}</div>
-        <div className="footer-col"><h4>Company</h4><a href="#about">About us</a><a href="#gallery">Our work</a><a href="#faq">FAQ</a><a href="#contact">Contact</a></div>
+        <div className="footer-brand-col"><a href="#home" className="footer-wordmark">Rea&apos;s <span>Cleaning Services</span></a><p>Professional cleaning for offices, Airbnb rentals, commercial spaces, and moves across Atlanta — reliable, detail-focused, and done right.</p><div className="footer-socials"><a className="footer-social footer-social-fb" href="https://www.facebook.com/reacleaningservices/about/" target="_blank" rel="noreferrer" aria-label="Rea&apos;s Cleaning Services on Facebook"><span aria-hidden="true" className="facebook-mark">f</span></a><a className="footer-social footer-social-google" href="https://share.google/IveqZNX0Rl2SB9qlH" target="_blank" rel="noreferrer" aria-label="Rea&apos;s Cleaning Services on Google"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg></a></div></div>
+        <div className="footer-col"><h4>Company</h4><a href="#about">About us</a><a href="#services">Services</a><a href="#gallery">Our work</a><a href="#faq">FAQ</a><a href="#contact">Contact</a></div>
         <div className="footer-col footer-reach"><h4>Get in touch</h4><a href={`tel:${phone}`}><Phone size={14} /> {phone}</a><a href="mailto:emilie0874@gmail.com"><Mail size={14} /> emilie0874@gmail.com</a><span><Clock3 size={14} /> Open daily, 9 AM – 9 PM</span><span><MapPin size={14} /> Atlanta, GA &amp; surrounding areas</span></div>
       </div>
-      <div className="footer-bottom"><span>© 2026 Rea&apos;s Cleaning Services. All rights reserved.</span><span>10+ years of trusted cleaning in Atlanta.</span></div>
+      <div className="footer-bottom"><span>© 2026 Rea&apos;s Cleaning Services. All rights reserved.</span><span>Powered by <a href="https://www.rizingmetrics.com/" target="_blank" rel="noreferrer">Rizing Metrics</a></span></div>
     </footer>
     <div className="mobile-cta"><a href={`tel:${phone}`}><Phone size={16} /> Call</a><a href={`sms:${phone}`}><Mail size={16} /> Text</a><a href="#contact"><Sparkles size={16} /> Quote</a></div>
     <WhatsAppButton />
